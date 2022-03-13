@@ -28,3 +28,5 @@ export const getContracts = async web3 => {
 
   return { itemManager, item };
 };
+
+export const getItemContract = async ({ web3, address }) => new web3.eth.Contract(Item.abi, address);

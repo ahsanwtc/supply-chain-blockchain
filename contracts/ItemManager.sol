@@ -1,5 +1,6 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.6.0;
+pragma experimental ABIEncoderV2;
 
 import "./Item.sol";
 import "./Ownable.sol";
@@ -40,6 +41,14 @@ contract ItemManager is Ownable {
         require(items[_index]._step == SupplyChain.Paid, "Item is further in the chain");
         items[_index]._step = SupplyChain.Delivered;
         emit SupplyChainStep(_index, uint(SupplyChain.Delivered), address(items[_index]._item));
+    }
+
+    function getAllItems() public view returns(S_Item[] memory) {
+        S_Item[] memory _items = new S_Item[](index);
+        for (uint i = 0; i < index; i++) {
+            _items[i] = items[i];
+        }
+        return _items;
     }
 
 }

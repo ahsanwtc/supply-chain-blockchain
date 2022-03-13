@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Typography, Box, CssBaseline, Divider, OutlinedInput, TextField, InputAdornment, Button, Alert, Stack } from '@mui/material';
+import { 
+  Container, Typography, Box, CssBaseline, Divider, TextField, InputAdornment, Button, Alert, Stack, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, Paper
+} from '@mui/material';
 
-import { getWeb3, getContracts } from './utils';
+import { getWeb3, getContracts, getItemContract } from './utils';
+
+const STATUS = {
+  0: 'Created',
+  1: 'Paid',
+  2: 'Delivered'
+};
 
 const App = () => {
   const [web3, setWeb3] = useState(undefined);
@@ -10,6 +19,7 @@ const App = () => {
   const [cost, setCost] = useState(0);
   const [identifier, setIdentifier] = useState('');
   const [error, setError] = useState(undefined);
+  const [items, setItems] = useState([]);
 
   useEffect(() => {
     const init = async () => {
@@ -20,10 +30,19 @@ const App = () => {
       setWeb3(web3);
       setAccounts(accounts);
       setContracts(contracts);
+      
     };
 
     init();
   }, []);
+
+  useEffect(() => {
+    const init = async () => await fetchAllItems();
+    if (web3 && contracts) {
+      init();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [web3, contracts]);
 
   if (web3 === undefined || contracts === undefined || accounts.length === 0) {
     return (
@@ -39,6 +58,31 @@ const App = () => {
     }
 
     await contracts.itemManager.methods.createItem(identifier, cost).send({ from: accounts[0] });
+    await fetchAllItems();
+    setCost(0);
+    setIdentifier('');
+  };
+
+  const fetchAllItems = async () => {
+    const allItems = await contracts.itemManager.methods.getAllItems().call();
+    const items = [];
+    let index = 0;
+    for (const item of allItems) {
+      const i = await contracts.itemManager.methods.items(index).call();
+      const itemAtAddress = await getItemContract({ web3, address: i._item });
+      const cost = await itemAtAddress.methods.priceInWei().call();
+
+      items.push({
+        index,
+        identifier: item._identifier,
+        step: item._step,
+        cost,
+        address: item._item
+      });
+      index++;
+    }
+
+    setItems(items);
   };
 
   return (
@@ -52,6 +96,28 @@ const App = () => {
         
         <Box sx={{ display: 'flex', flexWrap: 'wrap', marginTop: '10px' }}>
           <Typography variant="h6">Items</Typography>
+          <TableContainer component={Paper}>
+            <Table sx={{ minWidth: 650 }} aria-label="simple table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>ID</TableCell>
+                  <TableCell align="right">Identifier</TableCell>
+                  <TableCell align="right">Cost (wei)</TableCell>
+                  <TableCell align="right">Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {items.map(item => (
+                  <TableRow key={item.index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                    <TableCell component="th" scope="row">{item.address}</TableCell>
+                    <TableCell align="right">{item.identifier}</TableCell>
+                    <TableCell align="right">{item.cost}</TableCell>
+                    <TableCell align="right">{STATUS[item.step]}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </Box>
         
         <Divider variant="middle" />
