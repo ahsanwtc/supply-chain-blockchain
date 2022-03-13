@@ -20,6 +20,7 @@ const App = () => {
   const [identifier, setIdentifier] = useState('');
   const [error, setError] = useState(undefined);
   const [items, setItems] = useState([]);
+  const [eventListener, setEventListener] = useState(undefined);
 
   useEffect(() => {
     const init = async () => {
@@ -40,6 +41,18 @@ const App = () => {
     const init = async () => await fetchAllItems();
     if (web3 && contracts) {
       init();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [web3, contracts]);
+
+  useEffect(() => {
+    
+    if (web3 && contracts) {
+      listenToPayments();
+    }
+    
+    return function cleanup () {
+      eventListener && eventListener.unsubscribe();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [web3, contracts]);
@@ -85,12 +98,64 @@ const App = () => {
     setItems(items);
   };
 
+  const listenToPayments = () => {
+    if (eventListener !== undefined) {
+      eventListener.unsubscribe();
+    }
+
+    const listener = contracts.itemManager.events.SupplyChainStep().on('data', async event => {
+      console.log(event);
+      const addressOfItem = event.returnValues._address;
+      const step = event.returnValues._step;
+      const item = items.find(i => i.address === addressOfItem);
+      if (item) {
+        const newItems = items.map(i => {
+          if (i.address === addressOfItem) {
+            i.step = step;
+          }
+          return i;
+        });
+        setItems(newItems);
+      }
+
+    });
+    setEventListener(listener);
+  };
+
   return (
     <React.Fragment>
       <CssBaseline />
       <Container sx={{ bgcolor: '#cfe8fc', height: '100vh' }}>
         <Typography variant="h4">Supply Chain Blockchain</Typography>
         <Typography variant="subtitle1">A simple project to implement supply chain in blockchain.</Typography>
+        
+        <Divider variant="middle" />
+
+        <Stack sx={{ width: '100%', marginTop: '10px' }} spacing={2}>
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', marginTop: '20px', marginBottom: '10px' }}>
+          <TextField
+            label="Cost in Wei"            
+            sx={{ m: 1, width: '25ch' }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start">wei</InputAdornment>,
+            }}
+            onChange={e => setCost(e.target.value)}
+            value={cost}
+          />
+          <TextField
+            label="Item indentifier"            
+            sx={{ m: 1, width: '75ch' }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start">identifier</InputAdornment>,
+            }}
+            onChange={e => setIdentifier(e.target.value)}
+            value={identifier}
+          />
+          <Button sx={{ m: 1, width: '25ch' }} variant="contained" onClick={handleButtonOnClick}>Create Item</Button>
+        </Box>
         
         <Divider variant="middle" />
         
@@ -118,34 +183,6 @@ const App = () => {
               </TableBody>
             </Table>
           </TableContainer>
-        </Box>
-        
-        <Divider variant="middle" />
-        
-        <Stack sx={{ width: '100%', marginTop: '10px' }} spacing={2}>
-          {error && <Alert severity="error">{error}</Alert>}
-        </Stack>
-
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', marginTop: '20px' }}>
-          <TextField
-            label="Cost in Wei"            
-            sx={{ m: 1, width: '25ch' }}
-            InputProps={{
-              startAdornment: <InputAdornment position="start">wei</InputAdornment>,
-            }}
-            onChange={e => setCost(e.target.value)}
-            value={cost}
-          />
-          <TextField
-            label="Item indentifier"            
-            sx={{ m: 1, width: '75ch' }}
-            InputProps={{
-              startAdornment: <InputAdornment position="start">identifier</InputAdornment>,
-            }}
-            onChange={e => setIdentifier(e.target.value)}
-            value={identifier}
-          />
-          <Button sx={{ m: 1, width: '25ch' }} variant="contained" onClick={handleButtonOnClick}>Create Item</Button>
         </Box>
 
       </Container>
